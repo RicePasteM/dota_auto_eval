@@ -101,6 +101,14 @@
             <el-button size="small" @click="toggleSelectAllEmails" :disabled="unregisteredEmails.length === 0">
               {{ isAllEmailsSelected ? '取消全部' : '全部选择' }}
             </el-button>
+            <el-button 
+              size="small" 
+              type="danger" 
+              @click="handleDeleteSelectedEmails" 
+              :disabled="selectedEmailIds.length === 0"
+            >
+              删除选中邮箱
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -429,6 +437,42 @@ const toggleSelectAllEmails = () => {
 const handleFilter = () => {
   currentPage.value = 1 // 重置页码
   fetchUsers()
+}
+
+// 处理删除选中邮箱
+const handleDeleteSelectedEmails = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedEmailIds.value.length} 个邮箱吗？`,
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    const token = localStorage.getItem('accessToken')
+    const response = await fetch(`${window.BASE_URL}/api/emails/batch`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ email_ids: selectedEmailIds.value })
+    })
+
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.msg || '删除失败')
+
+    ElMessage.success(data.msg)
+    // 重新获取未注册邮箱列表
+    await fetchUnregisteredEmails()
+  } catch (error) {
+    if (error.message !== 'cancel') {
+      ElMessage.error(error.message)
+    }
+  }
 }
 
 // 页面加载时获取数据

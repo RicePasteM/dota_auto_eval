@@ -124,3 +124,22 @@ def get_email_message(email_id, message_id):
         
     except Exception as e:
         return jsonify({'msg': '获取邮件内容失败', 'detail': str(e)}), 500
+
+@emails_bp.route('/emails/batch', methods=['DELETE'])
+@auth_required()
+def batch_delete_emails():
+    """批量删除邮箱"""
+    try:
+        email_ids = request.json.get('email_ids', [])
+        if not email_ids:
+            return jsonify({'msg': '未提供要删除的邮箱ID'}), 400
+            
+        # 批量删除邮箱
+        Email.query.filter(Email.email_id.in_(email_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        return jsonify({'msg': f'成功删除 {len(email_ids)} 个邮箱'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'msg': f'批量删除失败: {str(e)}'}), 500
