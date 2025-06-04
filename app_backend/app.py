@@ -6,7 +6,7 @@ import pymysql
 from config import Config # Import configuration
 import os
 import re
-
+from tools.get_base_url import get_local_base_url
 # Import blueprints
 from routes.api_bp import api_bp
 
@@ -43,7 +43,7 @@ def create_app(host='0.0.0.0', port=5000):
     app.config['SERVER_PORT'] = port
     
     # Calculate backend URL
-    backend_url = f'http://{host if host != "0.0.0.0" else "localhost"}:{port}'
+    backend_url = os.environ.get('BACKEND_PUBLIC_URL') or get_local_base_url()
     app.config['BACKEND_URL'] = backend_url
 
     # Initialize extensions

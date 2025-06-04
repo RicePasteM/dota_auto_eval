@@ -85,7 +85,7 @@ def delete_email(email_id):
 @auth_required()
 def get_email_inbox(email_id):
     email = Email.query.get_or_404(email_id)
-
+    print(f"获取收件箱: {email.email}")
     payload = create_payload(email.email, url="https://app.sonjj.com/v1/temp_email/create")
     create_email(payload)
 

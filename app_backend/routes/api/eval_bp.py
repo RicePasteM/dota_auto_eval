@@ -13,14 +13,10 @@ import json
 import queue
 import uuid
 from utils.auth import auth_required
+from tools.get_base_url import get_local_base_url
 
 eval_bp = Blueprint('eval_bp', __name__)
 
-def get_base_url():
-    """Get base URL using current app's host and port"""
-    host = '127.0.0.1'
-    port = current_app.config.get('SERVER_PORT', 5000)
-    return f"http://{host}:{port}"
 
 # Store active task information
 active_tasks = {}
@@ -118,7 +114,7 @@ def process_eval_task(app, task_id, server_id, file_path, user_id):
                     })
                     
                     # Get inbox content
-                    base_url = get_base_url()
+                    base_url = get_local_base_url()
                     inbox_url = f"{base_url}/api/emails/{user.email_id}/inbox"
                     inbox_resp = requests.get(
                         inbox_url, 

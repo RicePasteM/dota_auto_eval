@@ -9,14 +9,10 @@ import random
 import string
 import os
 from bs4 import BeautifulSoup
+from tools.get_base_url import get_local_base_url
 
 server_users_bp = Blueprint('server_users_bp', __name__)
 
-def get_base_url():
-    """Get base URL using current app's host and port"""
-    host = '127.0.0.1'
-    port = current_app.config.get('SERVER_PORT', 5000)
-    return f"http://{host}:{port}"
 
 @server_users_bp.route('/server_users', methods=['GET'])
 @auth_required()
@@ -166,8 +162,8 @@ def auto_signup():
     email = email_obj.email
     # 2. 刷新邮箱（假设有get_email_inbox接口）
     try:
-        base_url = get_base_url()
-        inbox_url = f"{base_url}/manage/emails/{email_id}/inbox"
+        base_url = get_local_base_url()
+        inbox_url = f"{base_url}/api/emails/{email_id}/inbox"
         requests.get(inbox_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
     except Exception as e:
         return jsonify({'msg': f'刷新邮箱失败: {str(e)}'}), 500
@@ -195,9 +191,10 @@ def auto_signup():
         if "A user with that username already exists" in resp2.text:
             return jsonify({'msg': '用户名已存在', 'username': username, 'email': email, 'password': password, 'result': 'fail'}), 400
         if "confirm your email address to complete the registration" not in resp2.text:
-            return jsonify({'msg': '注册请求未成功发出，已删除邮箱', 'result': 'fail', 'debug': resp2.text[:300]}), 500
+            return jsonify({'msg': '重复发出的注册请求', 'result': 'fail', 'debug': resp2.text[:300]}), 500
     except Exception as e:
         return jsonify({'msg': f'注册请求失败: {str(e)}', 'result': 'fail'}), 500
+    print(f"注册请求成功: {username} {email} {password}")
     # 4. 轮询收信，获取激活链接
     activate_url = None
     start_time = time.time()
@@ -205,6 +202,7 @@ def auto_signup():
     retry = 0
     while time.time() - start_time < max_wait:
         try:
+            print(inbox_url)
             inbox_resp = requests.get(inbox_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
             inbox_data = inbox_resp.json()
             messages = inbox_data.get('messages', [])
@@ -215,7 +213,7 @@ def auto_signup():
                     # 获取邮件内容
                     msg_id = msg['mid']
                     base_url = get_base_url()
-                    msg_url = f"{base_url}/manage/emails/{email_id}/messages/{msg_id}"
+                    msg_url = f"{base_url}/api/emails/{email_id}/messages/{msg_id}"
                     msg_resp = requests.get(msg_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
                     msg_data = msg_resp.json()
                     body = msg_data.get('body', '')
