@@ -13,7 +13,14 @@ import json
 import queue
 import uuid
 from utils.auth import auth_required
-from tools.get_base_url import get_local_base_url
+
+def get_local_base_url():
+    """Get base URL using current app's host and port"""
+    with current_app.app_context():
+        host = '127.0.0.1'
+        port = current_app.config.get('SERVER_PORT', 5000)
+        return f"http://{host}:{port}"
+
 
 eval_bp = Blueprint('eval_bp', __name__)
 

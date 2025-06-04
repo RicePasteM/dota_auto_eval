@@ -6,9 +6,16 @@ import pymysql
 from config import Config # Import configuration
 import os
 import re
-from tools.get_base_url import get_local_base_url
 # Import blueprints
 from routes.api_bp import api_bp
+
+def get_local_base_url():
+    """Get base URL using current app's host and port"""
+    with current_app.app_context():
+        host = '127.0.0.1'
+        port = current_app.config.get('SERVER_PORT', 5000)
+        return f"http://{host}:{port}"
+
 
 pymysql.install_as_MySQLdb()
 

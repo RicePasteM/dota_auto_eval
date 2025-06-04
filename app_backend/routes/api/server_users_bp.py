@@ -9,7 +9,14 @@ import random
 import string
 import os
 from bs4 import BeautifulSoup
-from tools.get_base_url import get_local_base_url
+
+def get_local_base_url():
+    """Get base URL using current app's host and port"""
+    with current_app.app_context():
+        host = '127.0.0.1'
+        port = current_app.config.get('SERVER_PORT', 5000)
+        return f"http://{host}:{port}"
+
 
 server_users_bp = Blueprint('server_users_bp', __name__)
 
@@ -212,7 +219,7 @@ def auto_signup():
                     print("收到邮件")
                     # 获取邮件内容
                     msg_id = msg['mid']
-                    base_url = get_base_url()
+                    base_url = get_local_base_url()
                     msg_url = f"{base_url}/api/emails/{email_id}/messages/{msg_id}"
                     msg_resp = requests.get(msg_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
                     msg_data = msg_resp.json()
