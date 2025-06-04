@@ -1,0 +1,11 @@
+README.md
+setup.py
+dota_auto_eval/__init__.py
+dota_auto_eval/evaluator.py
+dota_auto_eval/exceptions.py
+dota_auto_eval/parsers.py
+dota_auto_eval.egg-info/PKG-INFO
+dota_auto_eval.egg-info/SOURCES.txt
+dota_auto_eval.egg-info/dependency_links.txt
+dota_auto_eval.egg-info/requires.txt
+dota_auto_eval.egg-info/top_level.txt

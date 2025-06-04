@@ -1,0 +1,48 @@
+# DOTA Auto Eval
+
+DOTA自动评估客户端，用于连接DOTA评估服务器并提交评估任务。
+
+## 安装
+
+```bash
+pip install dota_auto_eval
+```
+
+## 使用示例
+
+```python
+from dota_auto_eval import DOTAEvaluator
+
+# 创建评估器实例
+evaluator = DOTAEvaluator(
+    base_url="http://your-server-url",
+    api_key="your-api-key"
+)
+
+# 提交评估任务
+task_id = evaluator.submit_eval(
+    server_id=1,
+    eval_file="path/to/your/file.txt"
+)
+
+# 获取任务状态
+status = evaluator.get_task_status(task_id)
+
+# 等待任务完成
+result = evaluator.wait_for_result(task_id, timeout=180)
+print(f"评估结果: {result}")
+```
+
+## 主要功能
+
+- 支持API密钥认证
+- 提供评估任务提交接口
+- 支持任务状态查询
+- 提供任务结果轮询功能
+- 异常处理和重试机制
+
+## 依赖要求
+
+- Python >= 3.7
+- requests >= 2.25.0
+- python-dateutil >= 2.8.0 
