@@ -7,6 +7,8 @@ import EmailManageView from '../views/EmailManageView.vue'
 import UserManageView from '../views/UserManageView.vue'
 import ApiKeyManageView from '../views/ApiKeyManageView.vue'
 import EvalLogsView from '../views/EvalLogsView.vue'
+import TrainingTasksView from '../views/TrainingTasksView.vue'
+import TrainingDetailView from '../views/TrainingDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -51,6 +53,18 @@ const router = createRouter({
           path: '/eval-logs',
           name: 'eval-logs',
           component: EvalLogsView,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: '/training',
+          name: 'training',
+          component: TrainingTasksView,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: '/training/:id',
+          name: 'training-detail',
+          component: TrainingDetailView,
           meta: { requiresAuth: true }
         },
       ],

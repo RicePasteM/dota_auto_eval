@@ -383,6 +383,8 @@ const fetchUnregisteredEmails = async () => {
   }
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 const startAutoSignup = async () => {
   signupLoading.value = true
   signupComplete.value = false
@@ -390,6 +392,7 @@ const startAutoSignup = async () => {
   let successCount = 0
   let failCount = 0
   for (let i = 0; i < selectedEmailIds.value.length; i++) {
+    await sleep(3000)
     const emailId = selectedEmailIds.value[i]
     const emailObj = unregisteredEmails.value.find(e => e.email_id === emailId)
     signupLog.value += `【${i+1}/${selectedEmailIds.value.length}】正在注册邮箱: ${emailObj?.email || emailId} ...\n`

@@ -1,14 +1,19 @@
-Metadata-Version: 2.1
-Name: dota-auto-eval
+Metadata-Version: 2.4
+Name: dota_auto_eval
 Version: 0.1.0
 Summary: DOTA自动评估客户端
-Home-page: UNKNOWN
 Author: DOTA Auto Eval Team
 Author-email: 
-License: UNKNOWN
-Platform: UNKNOWN
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.25.0
+Requires-Dist: python-dateutil>=2.8.0
+Dynamic: author
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # DOTA Auto Eval
 
@@ -58,4 +63,3 @@ print(f"评估结果: {result}")
 - Python >= 3.7
 - requests >= 2.25.0
 - python-dateutil >= 2.8.0 
-

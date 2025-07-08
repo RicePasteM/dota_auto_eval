@@ -1,176 +1,179 @@
 <template>
-  <div class="dashboard">
-    <header class="header">
-      <div class="header-left">
-        <h1>DOTA Auto Eval 管理系统</h1>
-        <el-breadcrumb separator="/">
-          <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
-          <el-breadcrumb-item>
-            {{ getBreadcrumbTitle(currentRoute.name) }}
-          </el-breadcrumb-item>
-        </el-breadcrumb>
+  <el-container class="layout-container">
+    <el-aside width="220px" class="menu-container">
+      <div class="logo-container">
+        <h2>DOTA 管理系统</h2>
       </div>
-      <button @click="handleLogout" class="logout-btn">退出登录</button>
-    </header>
-    
-    <nav class="sidebar">
-      <ul>
-        <li>
-          <router-link to="/dashboard" active-class="active">仪表盘</router-link>
-        </li>
-        <li>
-          <router-link to="/servers" active-class="active">服务器管理</router-link>
-        </li>
-        <li>
-          <router-link to="/emails" active-class="active">邮箱管理</router-link>
-        </li>
-        <li>
-          <router-link to="/users" active-class="active">用户管理</router-link>
-        </li>
-        <li>
-          <router-link to="/api-keys" active-class="active">API Key管理</router-link>
-        </li>
-        <li>
-          <router-link to="/eval-logs" active-class="active">评估日志</router-link>
-        </li>
-      </ul>
-    </nav>
-
-    <main class="main-content">
-      <router-view></router-view>
-    </main>
-  </div>
+      <el-menu
+        router
+        :default-active="activeIndex"
+        class="el-menu-vertical"
+        background-color="#304156"
+        text-color="#bfcbd9"
+        active-text-color="#409EFF"
+      >
+        <el-menu-item index="/dashboard">
+          <el-icon><DataBoard /></el-icon>
+          <span>数据看板</span>
+        </el-menu-item>
+        
+        <el-menu-item index="/servers">
+          <el-icon><Connection /></el-icon>
+          <span>评估服务器管理</span>
+        </el-menu-item>
+        
+        <el-menu-item index="/emails">
+          <el-icon><Message /></el-icon>
+          <span>邮箱管理</span>
+        </el-menu-item>
+        
+        <el-menu-item index="/users">
+          <el-icon><User /></el-icon>
+          <span>用户管理</span>
+        </el-menu-item>
+        
+        <el-menu-item index="/eval-logs">
+          <el-icon><Document /></el-icon>
+          <span>评估日志</span>
+        </el-menu-item>
+        
+        <el-menu-item index="/training">
+          <el-icon><List /></el-icon>
+          <span>训练任务管理</span>
+        </el-menu-item>
+        
+        <el-menu-item index="/api-keys">
+          <el-icon><Key /></el-icon>
+          <span>API密钥</span>
+        </el-menu-item>
+      </el-menu>
+    </el-aside>
+    <el-container class="content-container">
+      <el-header class="header-container">
+        <div class="header-left">
+          <el-icon class="toggle-icon" @click="toggleCollapse"><Expand /></el-icon>
+        </div>
+        <div class="header-right">
+          <el-dropdown>
+            <span class="el-dropdown-link">
+              管理员
+              <el-icon class="el-icon--right"><arrow-down /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+      </el-header>
+      <el-main class="main-container">
+        <router-view></router-view>
+      </el-main>
+    </el-container>
+  </el-container>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 
-const currentRoute = computed(() => route)
+const activeIndex = computed(() => route.path)
+const isCollapse = ref(false)
 
-// 面包屑标题映射
-const routeTitles = {
-  dashboard: '仪表盘',
-  servers: '服务器管理',
-  emails: '邮箱管理',
-  users: '用户管理',
-  'api-keys': 'API Key管理',
-  'eval-logs': '评估日志'
-}
-
-const getBreadcrumbTitle = (routeName) => {
-  return routeTitles[routeName] || routeName
+const toggleCollapse = () => {
+  isCollapse.value = !isCollapse.value
 }
 
 const handleLogout = () => {
-  localStorage.removeItem('accessToken')
-  router.push('/login')
+  ElMessageBox.confirm('确定要退出登录吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    localStorage.removeItem('accessToken')
+    router.push('/login')
+  }).catch(() => {})
 }
 </script>
 
 <style scoped>
-.dashboard {
-  display: grid;
-  grid-template-areas:
-    "header header"
-    "sidebar main";
-  grid-template-columns: 200px 1fr;
-  grid-template-rows: 60px 1fr;
-  height: 100vh;
+.layout-container {
+  height: 100%;
 }
 
-.header {
-  grid-area: header;
-  background-color: #1890ff;
-  color: white;
-  padding: 0 1.5rem;
+.menu-container {
+  background-color: #304156;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  overflow-y: auto;
+}
+
+.logo-container {
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #2b3649;
+}
+
+.logo-container h2 {
+  color: #fff;
+  font-size: 18px;
+  margin: 0;
+}
+
+.el-menu-vertical {
+  border-right: none;
+}
+
+.content-container {
+  margin-left: 220px;
+}
+
+.header-container {
+  background-color: #fff;
+  border-bottom: 1px solid #e6e6e6;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 60px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
 }
 
-.header h1 {
-  font-size: 1.2rem;
-  margin: 0;
-  white-space: nowrap;
-}
-
-:deep(.el-breadcrumb) {
-  --el-text-color-regular: rgba(255, 255, 255, 0.85);
-  --el-text-color-primary: white;
-}
-
-:deep(.el-breadcrumb__separator) {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-:deep(.el-breadcrumb__inner a) {
-  color: rgba(255, 255, 255, 0.85) !important;
-  font-weight: normal;
-}
-
-:deep(.el-breadcrumb__inner a:hover) {
-  color: white !important;
-}
-
-:deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
-  color: white;
-  font-weight: 600;
-}
-
-.logout-btn {
-  background: none;
-  border: 1px solid white;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+.toggle-icon {
+  font-size: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  margin-right: 15px;
 }
 
-.logout-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
-.sidebar {
-  grid-area: sidebar;
-  background-color: #001529;
-  padding: 1rem 0;
+.el-dropdown-link {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #606266;
 }
 
-.sidebar ul {
-  list-style: none;
+.main-container {
   padding: 0;
-  margin: 0;
-}
-
-.sidebar a {
-  display: block;
-  padding: 0.75rem 1rem;
-  color: #fff;
-  text-decoration: none;
-  transition: background-color 0.3s;
-}
-
-.sidebar a:hover,
-.sidebar a.active {
-  background-color: #1890ff;
-}
-
-.main-content {
-  grid-area: main;
-  padding: 1.5rem;
-  background-color: #f0f2f5;
+  height: calc(100vh - 60px);
   overflow-y: auto;
+  background-color: #f0f2f5;
 }
 </style> 

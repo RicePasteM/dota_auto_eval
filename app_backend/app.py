@@ -8,6 +8,7 @@ import os
 import re
 # Import blueprints
 from routes.api_bp import api_bp
+from utils.task_queue import start_task_worker, stop_task_worker
 
 def get_local_base_url():
     """Get base URL using current app's host and port"""
@@ -38,6 +39,9 @@ def update_backend_url(index_path, backend_url):
             return True
     return False
 
+# 在全局范围定义worker线程对象
+_worker_thread = None
+
 def create_app(host='0.0.0.0', port=5000):
     app = Flask(__name__)
     CORS(app)
@@ -64,7 +68,13 @@ def create_app(host='0.0.0.0', port=5000):
     index_path = os.path.join(frontend_dir, 'index.html')
     if os.path.exists(index_path):
         update_backend_url(index_path, backend_url)
-
+    
+    # 在应用启动时只启动一次worker
+    with app.app_context():
+        global _worker_thread
+        _worker_thread = start_task_worker(app)
+        print("Worker thread initialized at application startup")
+    
     # Register all routes in order of specificity:
     # 1. Static assets route (most specific)
     @app.route('/assets/<path:filename>')
@@ -85,10 +95,15 @@ def create_app(host='0.0.0.0', port=5000):
         # API routes will never reach here because they're handled by the blueprint
         return send_file(os.path.join(frontend_dir, 'index.html'))
     
+    # 添加关闭钩子，确保在应用关闭时停止worker
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
+    
     return app
 
 if __name__ == '__main__':
     app = create_app(host='0.0.0.0', port=5000)
     app.run(host=app.config['SERVER_HOST'], 
             port=app.config['SERVER_PORT'], 
-            debug=True)
+            debug=False) 

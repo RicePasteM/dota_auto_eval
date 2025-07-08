@@ -72,7 +72,7 @@
             <el-input-number
               v-model="createForm.count"
               :min="1"
-              :max="20"
+              :max="100"
               controls-position="right"
             />
           </el-form-item>

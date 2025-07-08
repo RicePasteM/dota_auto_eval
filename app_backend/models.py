@@ -11,6 +11,7 @@ class DotaServer(db.Model):
     limits_per_day = db.Column(db.Integer, nullable=False, default=2)
     eval_logs = db.relationship('EvalLog', backref='dota_server', lazy=True)
     server_users = db.relationship('ServerUser', backref='dota_server', lazy=True)
+    training_tasks = db.relationship('TrainingTask', backref='dota_server', lazy=True)
 
 class Email(db.Model):
     __tablename__ = 'emails'
@@ -18,15 +19,41 @@ class Email(db.Model):
     email = db.Column(db.String(50), nullable=False)
     server_users = db.relationship('ServerUser', backref='email', lazy=True)
 
+class TrainingTask(db.Model):
+    __tablename__ = 'training_tasks'
+    task_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    task_name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    server_id = db.Column(db.Integer, db.ForeignKey('dota_servers.server_id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
+    api_key_id = db.Column(db.Integer, db.ForeignKey('api_keys.key_id', ondelete='SET NULL', onupdate='CASCADE'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    status = db.Column(db.String(20), nullable=False, default='active')
+    
+    training_results = db.relationship('TrainingResult', backref='training_task', lazy=True)
+
+class TrainingResult(db.Model):
+    __tablename__ = 'training_results'
+    result_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('training_tasks.task_id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
+    epoch = db.Column(db.Integer, nullable=False)
+    submission_file = db.Column(db.String(255), nullable=False)
+    eval_result = db.Column(db.Text)
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    submitted_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    completed_at = db.Column(db.DateTime)
+    progress_output = db.Column(db.Text, nullable=True)
+    eval_logs = db.relationship('EvalLog', backref='training_result', lazy=True)
+
 class EvalLog(db.Model):
     __tablename__ = 'eval_logs'
     log_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     server_id = db.Column(db.Integer, db.ForeignKey('dota_servers.server_id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('server_users.user_id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('server_users.user_id', ondelete='SET NULL', onupdate='CASCADE'), nullable=True)
     api_key_id = db.Column(db.Integer, db.ForeignKey('api_keys.key_id', ondelete='SET NULL', onupdate='CASCADE'), nullable=True)
     eval_file_url = db.Column(db.String(255), nullable=False)
     eval_result = db.Column(db.Text, nullable=True)
     create_time = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    training_result_id = db.Column(db.Integer, db.ForeignKey('training_results.result_id', ondelete='SET NULL', onupdate='CASCADE'), nullable=True)
 
 class ServerUser(db.Model):
     __tablename__ = 'server_users'
@@ -45,6 +72,8 @@ class ApiKey(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     last_used_at = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    
+    training_tasks = db.relationship('TrainingTask', backref='api_key', lazy=True)
 
     def to_dict(self):
         return {

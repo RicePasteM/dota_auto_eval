@@ -1,304 +1,188 @@
 <template>
   <div class="login-container">
-    <div class="login-page">
-      <div class="login-header">
-        <h1>DOTA AUTO EVAL</h1>
-        <p class="subtitle">请登录以继续</p>
-      </div>
-      <form @submit.prevent="login" class="login-form">
-        <div class="form-group">
-          <label for="username">用户名</label>
-          <div class="input-wrapper">
+    <div class="login-box">
+      <div class="login-content">
+        <div class="login-header">
+          <h1>DOTA Auto Eval</h1>
+          <p class="subtitle">请登录以继续</p>
+        </div>
+        <form @submit.prevent="handleLogin" class="login-form">
+          <div class="form-group">
+            <label for="username">用户名</label>
             <input 
               type="text" 
               id="username" 
-              v-model="username" 
-              required
-              :disabled="loading"
+              v-model="form.username" 
+              required 
               placeholder="请输入用户名"
-            >
+              :disabled="loading"
+            />
           </div>
-        </div>
-        <div class="form-group">
-          <label for="password">密码</label>
-          <div class="input-wrapper">
+          <div class="form-group">
+            <label for="password">密码</label>
             <input 
               type="password" 
               id="password" 
-              v-model="password" 
-              required
-              :disabled="loading"
+              v-model="form.password" 
+              required 
               placeholder="请输入密码"
-            >
+              :disabled="loading"
+            />
           </div>
-        </div>
-        <button type="submit" :disabled="loading" class="login-button">
-          <span class="button-content">
-            <span v-if="!loading">登录</span>
-            <span v-else class="loading-spinner"></span>
-          </span>
-        </button>
-      </form>
-      <transition name="fade">
-        <p v-if="errorMessage" class="error-message">
-          <el-icon size="20">
-            <Close />
-          </el-icon>
-          {{ errorMessage }}
-        </p>
-      </transition>
-      <transition name="fade">
-        <p v-if="successMessage" class="success-message">
-          <el-icon size="20">
-            <Check />
-          </el-icon>
-          {{ successMessage }}
-        </p>
-      </transition>
+          <button 
+            type="submit" 
+            class="login-btn" 
+            :disabled="loading"
+          >
+            {{ loading ? '登录中...' : '登录' }}
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import axios from 'axios';
 
-const username = ref('');
-const password = ref('');
-const loading = ref(false);
-const errorMessage = ref('');
-const successMessage = ref('');
 const router = useRouter();
-const login = async () => {
-  loading.value = true;
-  errorMessage.value = '';
-  successMessage.value = '';
+const route = useRoute();
 
-  try {
-    const response = await fetch(`${window.BASE_URL}/api/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username.value,
-        password: password.value
-      })
-    });
+const loading = ref(false);
+const form = reactive({
+  username: '',
+  password: ''
+});
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw { 
-        response: {
-          status: response.status,
-          data: data
-        }
-      };
-    }
-
-    if (data && data.access_token) {
-      localStorage.setItem('accessToken', data.access_token);
-      successMessage.value = '登录成功！正在跳转...';
-      router.push('/dashboard');
-    } else {
-      errorMessage.value = '登录失败，请重试。';
-    }
-
-  } catch (error) {
-    if (error.response) {
-      if (error.response.data && error.response.data.msg) {
-        errorMessage.value = `登录失败: ${error.response.data.msg}`;
-      } else if (error.response.status === 401) {
-        errorMessage.value = '登录失败: 用户名或密码错误。';
-      } else {
-        errorMessage.value = `登录失败: 服务器错误 (${error.response.status})。`;
-      }
-    } else {
-      errorMessage.value = '登录失败: 无法连接到服务器，请检查网络或后端服务是否运行。';
-    }
-    console.error('Login error:', error);
-  } finally {
-    loading.value = false;
+const handleLogin = async () => {
+  if (!form.username || !form.password) {
+    return ElMessage.error('请输入用户名和密码')
   }
-};
+  
+  try {
+    loading.value = true
+    const response = await axios.post('/api/login', {
+      username: form.username,
+      password: form.password
+    })
+    
+    const token = response.data.access_token
+    localStorage.setItem('accessToken', token)
+    
+    // 重定向到之前尝试访问的页面，或者默认到首页
+    const redirectPath = route.query.redirect || '/dashboard'
+    router.push(redirectPath)
+    
+  } catch (error) {
+    console.error('登录失败:', error)
+    ElMessage.error('登录失败，请检查用户名和密码')
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
 .login-container {
-  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 20px;
+  height: 100vh;
+  background-color: #f5f7fa;
 }
 
-.login-page {
-  width: 100%;
-  max-width: 400px;
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
+.login-box {
+  width: 400px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-.login-page:hover {
-  transform: translateY(-2px);
+.login-content {
+  padding: 30px;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 30px;
 }
 
 .login-header h1 {
-  color: #2c3e50;
-  font-size: 1.8rem;
   margin: 0;
-  font-weight: 600;
+  font-size: 24px;
+  color: #409eff;
 }
 
 .subtitle {
-  color: #7f8c8d;
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
+  margin-top: 10px;
+  color: #909399;
+}
+
+.login-form {
+  margin-top: 20px;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
 }
 
-label {
+.form-group label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #34495e;
-  font-size: 0.9rem;
-  font-weight: 500;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #606266;
 }
 
-.input-wrapper {
-  position: relative;
-}
-
-input {
+.form-group input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: #f8f9fa;
-  color: #2c3e50;
+  padding: 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
   box-sizing: border-box;
+  font-size: 14px;
 }
 
-input:focus {
-  border-color: #3498db;
-  background: white;
+.form-group input:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  border-color: #409eff;
 }
 
-input:disabled {
-  background: #f5f6f7;
-  cursor: not-allowed;
-}
-
-.login-button {
+.login-btn {
   width: 100%;
-  padding: 0.75rem;
-  background: #3498db;
-  color: white;
+  padding: 12px;
+  background-color: #409eff;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
+  border-radius: 4px;
+  color: white;
+  font-size: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
+  transition: background-color 0.3s;
 }
 
-.login-button:hover:not(:disabled) {
-  background: #2980b9;
-  transform: translateY(-1px);
+.login-btn:hover {
+  background-color: #66b1ff;
 }
 
-.login-button:disabled {
-  background: #95a5a6;
+.login-btn:disabled {
+  background-color: #a0cfff;
   cursor: not-allowed;
-}
-
-.button-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-}
-
-.loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-message,
-.success-message {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .error-message {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  color: #f56c6c;
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
 }
 
 .success-message {
-  background: #dcfce7;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
-
-.error-icon,
-.success-icon {
-  font-size: 1.1rem;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-@media (max-width: 480px) {
-  .login-page {
-    padding: 1.5rem;
-  }
-
-  .login-header h1 {
-    font-size: 1.5rem;
-  }
+  color: #67c23a;
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
 }
 </style>

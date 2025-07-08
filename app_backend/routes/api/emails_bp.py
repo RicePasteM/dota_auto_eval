@@ -34,16 +34,16 @@ def get_emails():
 def create_email_account():
     try:
         # 获取新的payload
-        payload = create_payload(None, url="https://app.sonjj.com/v1/temp_email/create")
-
+        payload = create_payload(None, url="https://api.sonjj.com/v1/temp_email/create")
+        print("payload创建完毕")
         if not payload or not payload.startswith('eyJ'):
             return jsonify({'msg': '获取payload失败', 'detail': payload}), 400
-        
+
         # 使用payload创建邮箱
         email_response = create_email(payload)
         if not email_response.get('email'):
             return jsonify({'msg': '创建邮箱失败', 'detail': email_response}), 400
-        
+        print("email_response完毕")
         # 从响应中获取邮箱信息
         email_address = email_response['email']
         
@@ -86,10 +86,10 @@ def delete_email(email_id):
 def get_email_inbox(email_id):
     email = Email.query.get_or_404(email_id)
     print(f"获取收件箱: {email.email}")
-    payload = create_payload(email.email, url="https://app.sonjj.com/v1/temp_email/create")
+    payload = create_payload(email.email, url="https://api.sonjj.com/v1/temp_email/create")
     create_email(payload)
 
-    payload = create_payload(email.email, url="https://app.sonjj.com/v1/temp_email/inbox")
+    payload = create_payload(email.email, url="https://api.sonjj.com/v1/temp_email/inbox")
     
     try:
         # 获取收件箱内容
@@ -111,7 +111,7 @@ def get_email_message(email_id, message_id):
     """获取指定邮件的内容"""
     email = Email.query.get_or_404(email_id)
 
-    payload = create_payload(email.email, url="https://app.sonjj.com/v1/temp_email/message", mid=message_id)
+    payload = create_payload(email.email, url="https://api.sonjj.com/v1/temp_email/message", mid=message_id)
     
     try:
         # 获取邮件内容

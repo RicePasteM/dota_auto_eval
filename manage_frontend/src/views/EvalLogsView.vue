@@ -108,6 +108,18 @@
         <el-table-column prop="log_id" label="ID" width="80" />
         <el-table-column prop="server_name" label="服务器" width="120" />
         <el-table-column prop="username" label="用户名" width="120" />
+        <el-table-column prop="training_result_id" label="训练结果ID" width="100">
+          <template #default="scope">
+            <el-link 
+              v-if="scope.row.training_result_id"
+              type="primary" 
+              @click="viewTrainingResult(scope.row.training_result_id)"
+            >
+              {{ scope.row.training_result_id }}
+            </el-link>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="create_time" label="创建时间" width="180">
           <template #default="scope">
             {{ formatDate(scope.row.create_time) }}
@@ -166,6 +178,28 @@
     >
       <pre class="result-detail">{{ selectedResult }}</pre>
     </el-dialog>
+    
+    <!-- 训练结果进度对话框 -->
+    <el-dialog
+      v-model="progressDialogVisible"
+      title="训练结果进度详情"
+      width="60%"
+    >
+      <div v-if="progressMessages.length > 0" class="progress-messages">
+        <div
+          v-for="(msg, index) in progressMessages"
+          :key="index"
+          class="progress-message"
+          :class="msg.type"
+        >
+          <span class="timestamp" v-if="msg.timestamp">{{ formatTime(msg.timestamp) }}</span>
+          {{ msg.message }}
+        </div>
+      </div>
+      <div v-else class="no-progress">
+        暂无进度信息
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -173,7 +207,10 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const servers = ref([])
 const logs = ref([])
 const loading = ref(false)
@@ -184,6 +221,7 @@ const total = ref(0)
 const uploadRef = ref()
 const resultDialogVisible = ref(false)
 const selectedResult = ref('')
+const progressDialogVisible = ref(false)
 const progressMessages = ref([])
 const remainingCounts = ref(null)
 let pollInterval = null
@@ -204,15 +242,10 @@ const filterForm = ref({
 // 获取服务器列表
 const getServers = async () => {
   try {
-    const token = localStorage.getItem('accessToken')
-    const response = await fetch(`${window.BASE_URL}/api/servers?page=1&per_page=100`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const response = await axios.get('/api/servers', {
+      params: { page: 1, per_page: 100 }
     })
-    if (!response.ok) throw new Error('获取服务器列表失败')
-    const data = await response.json()
-    servers.value = data.items
+    servers.value = response.data.items
   } catch (error) {
     ElMessage.error('获取服务器列表失败')
   }
@@ -222,36 +255,26 @@ const getServers = async () => {
 const getLogs = async () => {
   loading.value = true
   try {
-    const token = localStorage.getItem('accessToken')
-    const params = new URLSearchParams({
-      page: currentPage.value.toString(),
-      per_page: pageSize.value.toString()
-    })
+    const params = {
+      page: currentPage.value,
+      per_page: pageSize.value
+    }
 
     // 添加筛选参数
     if (filterForm.value.server_id) {
-      params.append('server_id', filterForm.value.server_id)
+      params.server_id = filterForm.value.server_id
     }
     if (filterForm.value.username) {
-      params.append('username', filterForm.value.username)
+      params.username = filterForm.value.username
     }
     if (filterForm.value.dateRange && filterForm.value.dateRange.length === 2) {
-      params.append('start_date', filterForm.value.dateRange[0])
-      params.append('end_date', filterForm.value.dateRange[1])
+      params.start_date = filterForm.value.dateRange[0]
+      params.end_date = filterForm.value.dateRange[1]
     }
 
-    const response = await fetch(
-      `${window.BASE_URL}/api/eval/logs?${params.toString()}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    )
-    if (!response.ok) throw new Error('获取日志列表失败')
-    const data = await response.json()
-    logs.value = data.logs
-    total.value = data.total
+    const response = await axios.get('/api/eval/logs', { params })
+    logs.value = response.data.logs
+    total.value = response.data.total
   } catch (error) {
     ElMessage.error('获取日志列表失败')
   } finally {
@@ -363,6 +386,16 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleString()
 }
 
+// 格式化时间
+const formatTime = (timeStr) => {
+  try {
+    const date = new Date(timeStr)
+    return date.toLocaleTimeString()
+  } catch (e) {
+    return ''
+  }
+}
+
 // 获取结果标签类型
 const getResultTagType = (result) => {
   if (!result) return 'info'
@@ -385,6 +418,30 @@ const getResultText = (result) => {
 const showResult = (row) => {
   selectedResult.value = row.eval_result
   resultDialogVisible.value = true
+}
+
+// 查看训练结果详情
+const viewTrainingResult = async (resultId) => {
+  try {
+    // 获取训练结果的进度信息
+    const response = await axios.get(`/api/training/result/${resultId}`)
+    progressMessages.value = response.data.progress_output || []
+    progressDialogVisible.value = true
+  } catch (error) {
+    // 如果没有专门的API，尝试从训练任务中获取
+    try {
+      const taskResponse = await axios.get(`/api/training/${resultId}/task`)
+      const result = taskResponse.data.results.find(r => r.result_id === resultId)
+      if (result) {
+        progressMessages.value = result.progress_output || []
+        progressDialogVisible.value = true
+      } else {
+        ElMessage.error('无法获取训练结果进度信息')
+      }
+    } catch (e) {
+      ElMessage.error('无法获取训练结果进度信息')
+    }
+  }
 }
 
 // 刷新日志
@@ -564,5 +621,11 @@ onBeforeUnmount(() => {
   margin-left: 15px;
   color: #409EFF;
   font-size: 14px;
+}
+
+.no-progress {
+  text-align: center;
+  color: #909399;
+  padding: 20px;
 }
 </style> 

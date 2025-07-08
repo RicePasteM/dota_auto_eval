@@ -22,20 +22,18 @@ def create_session():
         backoff_factor=0.5,  # 重试间隔
         status_forcelist=[500, 502, 503, 504]  # 需要重试的HTTP状态码
     )
+
+    proxies = {
+        "http": "http://127.0.0.1:7890",
+        "https": "http://127.0.0.1:7890",
+    }
+
+    session.proxies = proxies
     
     # 配置适配器
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    
-    # 显式禁用所有代理
-    session.trust_env = False  # 不使用环境变量中的代理设置
-    session.proxies.clear()  # 清除所有代理设置
-    session.proxies.update({
-        'http': None,
-        'https': None,
-        'no_proxy': '*'
-    })
     
     return session
 
@@ -54,6 +52,7 @@ def get_default_headers():
         'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1'
     }
+    
 
 def create_payload(email, url, mid=None):
     """使用requests库创建payload"""
@@ -81,8 +80,8 @@ def create_payload(email, url, mid=None):
 
 def create_email(payload):
     session = create_session()
-    url = f"https://app.sonjj.com/v1/temp_email/create?payload={payload}"
-    
+    url = f"https://api.sonjj.com/v1/temp_email/create?payload={payload}"
+    print(url)
     try:
         response = session.get(url, headers=get_default_headers())
         return response.json()
@@ -91,7 +90,7 @@ def create_email(payload):
 
 def get_inbox(payload):
     session = create_session()
-    url = f"https://app.sonjj.com/v1/temp_email/inbox?payload={payload}"
+    url = f"https://api.sonjj.com/v1/temp_email/inbox?payload={payload}"
     
     try:
         response = session.get(url, headers=get_default_headers())
@@ -110,7 +109,7 @@ def get_message_content(payload):
         dict: 包含邮件内容的响应
     """
     session = create_session()
-    url = "https://app.sonjj.com/v1/temp_email/message"
+    url = "https://api.sonjj.com/v1/temp_email/message"
     params = {
         'payload': payload
     }

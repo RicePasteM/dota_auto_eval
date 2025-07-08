@@ -1,4 +1,5 @@
 import os
+import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,3 +14,6 @@ class Config:
     # JWT 配置
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'super-secret-key-please-change-it' # 强烈建议从环境变量读取或生成一个安全的随机密钥
     JWT_ACCESS_TOKEN_EXPIRES = False # 可以设置为 timedelta 对象, 例如: timedelta(hours=1) 
+    
+    # 系统内部API调用的密钥
+    SYSTEM_API_KEY = os.environ.get('SYSTEM_API_KEY') or secrets.token_hex(32) 
