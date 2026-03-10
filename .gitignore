@@ -6,7 +6,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -61,12 +60,11 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 
-# Frontend build (if you want to exclude the dist folder)
-# manage_frontend/dist/
-
 # Backup files
 *.bak
 *.backup
 *.swp
 
 node_modules
+
+eula.txt
