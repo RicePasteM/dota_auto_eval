@@ -2,7 +2,8 @@ import threading
 import time
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from dateutil import parser
 import requests
 from bs4 import BeautifulSoup
 from flask import current_app
@@ -192,9 +193,11 @@ def process_eval_task(app, training_result_id):
             
             db.session.add(eval_log)
             db.session.commit()
+
+            server = DotaServer.query.get(tr.training_task.server_id)
             
             # Submit evaluation
-            evaluator = DOTAEvaluator()
+            evaluator = DOTAEvaluator(base_url=server.server_url)
             
             # Login
             update_progress(tr, "info", f"Logging in with account {user.username}")
@@ -204,11 +207,19 @@ def process_eval_task(app, training_result_id):
                 update_progress(tr, "error", "Login failed, will retry later")
                 db.session.commit()
                 return
+
+            submit_begin_time = time.time()
                 
             # Submit evaluation
             update_progress(tr, "info", "Submitting evaluation file")
             success, message = evaluator.submit_evaluation(file_path)
             if not success:
+                if "UnboundLocalError" in message:
+                    update_progress(tr, "warning", "UnboundLocalError detected, finish evaluation")
+                    tr.status = 'completed'  # Mark for retry
+                    db.session.commit()
+                    return
+
                 eval_log.eval_result = f"Evaluation submission failed: {message}"
                 tr.status = 'retrying'  # Mark for retry
                 update_progress(tr, "error", f"Evaluation submission failed: {message}")
@@ -233,11 +244,11 @@ def process_eval_task(app, training_result_id):
                     
                     # Get inbox content
                     base_url = get_local_base_url()
-                    inbox_url = f"{base_url}/api/emails/{user.email_id}/inbox"
+                    inbox_url = f"{base_url}/api/emails/{user.email_id}/inbox?timestamp={int(submit_begin_time)}"
                     inbox_resp = requests.get(
                         inbox_url,
                         headers=headers,
-                        timeout=10
+                        timeout=30
                     )
                     
                     if inbox_resp.status_code != 200:
@@ -248,33 +259,54 @@ def process_eval_task(app, training_result_id):
                     inbox_data = inbox_resp.json()
                     messages = inbox_data.get('messages', [])
                     
+                    # Filter relevant messages
+                    candidate_messages = []
                     for msg in messages:
                         if 'DOTA Evaluation Results' in msg['textSubject']:
-                            # Get message content
-                            msg_id = msg['mid']
-                            msg_url = f"{base_url}/api/emails/{user.email_id}/messages/{msg_id}"
-                            msg_resp = requests.get(
-                                msg_url,
-                                headers=headers,
-                                timeout=10
-                            )
-                            
-                            if msg_resp.status_code != 200:
-                                update_progress(tr, "warning", f"Failed to get message: HTTP {msg_resp.status_code}")
-                                continue
+                            try:
+                                msg_date = parser.parse(msg['textDate'])
+                                # If naive, assume UTC
+                                if msg_date.tzinfo is None:
+                                    msg_date = msg_date.replace(tzinfo=timezone.utc)
                                 
-                            msg_data = msg_resp.json()
-                            result_content = msg_data.get('body', '')
+                                if msg_date.timestamp() > submit_begin_time:
+                                    candidate_messages.append((msg_date.timestamp(), msg))
+                            except Exception as e:
+                                print(f"Error parsing date for message {msg.get('mid')}: {e}")
+                                continue
+                    
+                    # Sort by timestamp ascending
+                    candidate_messages.sort(key=lambda x: x[0])
+
+                    if candidate_messages:
+                        # Process the last message
+                        _, msg = candidate_messages[-1]
+
+                        # Get message content
+                        msg_id = msg['mid']
+                        msg_url = f"{base_url}/api/emails/{user.email_id}/messages/{msg_id}"
+                        msg_resp = requests.get(
+                            msg_url,
+                            headers=headers,
+                            timeout=30
+                        )
+                        
+                        if msg_resp.status_code != 200:
+                            update_progress(tr, "warning", f"Failed to get message: HTTP {msg_resp.status_code}")
+                            continue
                             
-                            # Update evaluation result and training result
-                            eval_log.eval_result = result_content
-                            tr.eval_result = result_content
-                            tr.status = 'completed'
-                            tr.completed_at = datetime.now()
-                            update_progress(tr, "success", "Evaluation completed successfully")
-                            db.session.commit()
-                            success = True
-                            break
+                        msg_data = msg_resp.json()
+                        result_content = msg_data.get('body', '')
+                        
+                        # Update evaluation result and training result
+                        eval_log.eval_result = result_content
+                        tr.eval_result = result_content
+                        tr.status = 'completed'
+                        tr.completed_at = datetime.now()
+                        update_progress(tr, "success", "Evaluation completed successfully")
+                        db.session.commit()
+                        success = True
+                        break
                             
                     if success:
                         break
@@ -323,11 +355,41 @@ def task_worker(app):
                     last_db_check = current_time
                     
                     # Check database for any pending tasks
-                    # Get tasks marked for retry first
-                    task = TrainingResult.query.filter(not_(TrainingResult.status=="completed")).order_by(TrainingResult.submitted_at).first()
+                    # Get tasks with least failure count first
+                    from sqlalchemy import func
+                    
+                    # Subquery to count failures for each training result
+                    failure_count_subquery = db.session.query(
+                        EvalLog.training_result_id,
+                        func.count(EvalLog.log_id).label('failure_count')
+                    ).filter(
+                        EvalLog.training_result_id.isnot(None)
+                    ).group_by(EvalLog.training_result_id).subquery()
+                    
+                    # Main query to get uncompleted tasks ordered by failure count (ascending)
+                    task = db.session.query(TrainingResult).outerjoin(
+                        failure_count_subquery,
+                        TrainingResult.result_id == failure_count_subquery.c.training_result_id
+                    ).filter(
+                        not_(TrainingResult.status == "completed")
+                    ).order_by(
+                        func.coalesce(failure_count_subquery.c.failure_count, 0),
+                        TrainingResult.submitted_at
+                    ).first()
                     
                     if task:
                         print(f"###### Processing task {task.result_id} ######")
+                        # Check network connection
+                        url = f"https://api.sonjj.com/"
+                        print(url)
+                        try:
+                            # response = requests.get(url, timeout=30, proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"})
+                            response = requests.get(url, timeout=30)
+                            print(response.json())
+                        except requests.exceptions.RequestException as e:
+                            print(f"Error checking network connection: {str(e)}")
+                            time.sleep(10)
+                            continue
                         process_eval_task(app, task.result_id)
                         print(f"###### Task {task.result_id} processed ######")
                     

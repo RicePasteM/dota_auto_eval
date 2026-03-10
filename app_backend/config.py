@@ -5,8 +5,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI') or 'mysql://your_username:your_password@your_host:your_port/dota_auto_eval'
+    DB_TYPE = os.environ.get('DB_TYPE', 'sqlite').lower()
+    
+    if DB_TYPE == 'sqlite':
+        basedir = os.path.abspath(os.path.dirname(__file__))
+        instance_dir = os.path.join(basedir, 'instance')
+        os.makedirs(instance_dir, exist_ok=True)
+        db_path = os.path.join(instance_dir, 'dota_auto_eval.db')
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI') or f'sqlite:///{db_path}'
+    else:
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI') or 'mysql://your_username:your_password@your_host:your_port/dota_auto_eval'
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = os.environ.get('SQLALCHEMY_ECHO', 'false').lower() == 'true'
 
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') or 'admin'

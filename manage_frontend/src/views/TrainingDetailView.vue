@@ -7,7 +7,9 @@
             <el-button @click="goBack" icon="ArrowLeft">返回</el-button>
             <h3>训练任务详情</h3>
           </div>
-          <div v-if="taskDetail">
+          <div class="header-right" v-if="taskDetail">
+            <el-button type="success" @click="handleSubmitEpoch" :disabled="taskDetail.status !== 'active'">提交训练结果</el-button>
+            <el-button type="primary" @click="exportToHtml">导出</el-button>
             <el-tag :type="getStatusType(taskDetail.status)">{{ getStatusText(taskDetail.status) }}</el-tag>
           </div>
         </div>
@@ -95,6 +97,24 @@
                 @click="showProgressOutput(scope.row)"
               >
                 处理进度
+              </el-button>
+              <el-button 
+                size="small" 
+                type="success"
+                @click="rerunEvaluation(scope.row)"
+                :disabled="scope.row.status === 'processing' || rerunningResultId === scope.row.result_id"
+                :loading="rerunningResultId === scope.row.result_id"
+              >
+                重新评测
+              </el-button>
+              <el-button 
+                size="small" 
+                type="danger"
+                @click="deleteResult(scope.row)"
+                :disabled="deletingResultId === scope.row.result_id"
+                :loading="deletingResultId === scope.row.result_id"
+              >
+                删除
               </el-button>
             </template>
           </el-table-column>
@@ -239,6 +259,45 @@
       </div>
     </el-dialog>
 
+    <!-- 提交训练结果对话框 -->
+    <el-dialog v-model="submitDialogVisible" title="提交训练结果" width="500px">
+      <el-form ref="submitFormRef" :model="submitForm" label-width="120px" :rules="submitRules">
+        <el-form-item label="Epoch" prop="epoch">
+          <el-input-number v-model="submitForm.epoch" :min="1" :step="1" />
+        </el-form-item>
+        <el-form-item label="评估文件">
+          <el-upload
+            class="upload-demo"
+            action="#"
+            :http-request="handleUpload"
+            :limit="1"
+            :on-exceed="handleExceed"
+            :on-remove="handleRemove"
+            :auto-upload="true"
+            :multiple="false"
+            accept=".zip"
+            ref="uploadRef"
+          >
+            <template #trigger>
+              <el-button type="primary">选择文件</el-button>
+            </template>
+            <template #tip>
+              <div class="el-upload__tip">
+                只能上传zip文件
+              </div>
+            </template>
+          </el-upload>
+          <div v-if="!hasUploadedFile" class="error-tip">请选择评估文件</div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="submitDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmitEpochConfirm" :loading="submitting">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 处理进度对话框 -->
     <el-dialog v-model="progressDialogVisible" title="处理进度详情" width="70%">
       <div class="progress-header">
@@ -271,7 +330,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch, nextTick, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import * as echarts from 'echarts'
@@ -293,6 +352,22 @@ const refreshTimer = ref(null)
 const currentResultId = ref(null)
 const isProcessing = ref(false)
 const refreshing = ref(false)
+const rerunningResultId = ref(null)
+const deletingResultId = ref(null)
+const submitDialogVisible = ref(false)
+const submitFormRef = ref(null)
+const uploadRef = ref(null)
+const submitForm = reactive({
+  epoch: 1
+})
+const submitting = ref(false)
+const hasUploadedFile = ref(false)
+
+const submitRules = {
+  epoch: [
+    { required: true, message: '请输入Epoch数值', trigger: 'blur' }
+  ]
+}
 
 // 图表引用
 const vocMapChartRef = ref(null)
@@ -909,6 +984,407 @@ const manualRefreshProgress = () => {
   }
 }
 
+const rerunEvaluation = async (result) => {
+  try {
+    rerunningResultId.value = result.result_id
+    await axios.post(`/api/training/result/${result.result_id}/rerun`)
+    ElMessage.success('已提交重新评测请求')
+    fetchTaskDetail()
+  } catch (error) {
+    console.error('重新评测失败:', error)
+    ElMessage.error(error.response?.data?.msg || '重新评测失败')
+  } finally {
+    rerunningResultId.value = null
+  }
+}
+
+const deleteResult = async (result) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除这条评测结果吗？此操作不可恢复。',
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    deletingResultId.value = result.result_id
+    await axios.delete(`/api/training/result/${result.result_id}`)
+    ElMessage.success('删除成功')
+    fetchTaskDetail()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error(error.response?.data?.msg || '删除失败')
+    }
+  } finally {
+    deletingResultId.value = null
+  }
+}
+
+const handleSubmitEpoch = () => {
+  submitDialogVisible.value = true
+  submitForm.epoch = 1
+  submitForm.eval_file = null
+  hasUploadedFile.value = false
+  
+  if (uploadRef.value) {
+    uploadRef.value.clearFiles()
+  }
+}
+
+const handleUpload = (options) => {
+  submitForm.eval_file = options.file
+  hasUploadedFile.value = true
+}
+
+const handleRemove = () => {
+  submitForm.eval_file = null
+  hasUploadedFile.value = false
+}
+
+const handleExceed = () => {
+  ElMessage.warning('只能上传一个文件')
+}
+
+const handleSubmitEpochConfirm = async () => {
+  if (!submitFormRef.value) return
+  
+  await submitFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    if (!hasUploadedFile.value) {
+      ElMessage.warning('请选择评估文件')
+      return
+    }
+    
+    submitting.value = true
+    try {
+      const formData = new FormData()
+      formData.append('epoch', submitForm.epoch)
+      formData.append('eval_file', submitForm.eval_file)
+      
+      await axios.post(`/api/training/${taskId.value}/epoch`, formData)
+      ElMessage.success('提交训练结果成功')
+      submitDialogVisible.value = false
+      fetchTaskDetail()
+    } catch (error) {
+      console.error('提交训练结果失败:', error)
+      ElMessage.error(error.response?.data?.msg || '提交训练结果失败')
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
+const exportToHtml = () => {
+  if (!taskDetail.value) return
+  
+  const task = taskDetail.value
+  const results = task.results || []
+  const parsed = parsedResults.value
+  
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-'
+    return new Date(dateStr).toLocaleString()
+  }
+  
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending': return '待处理'
+      case 'processing': return '处理中'
+      case 'completed': return '已完成'
+      case 'failed': return '失败'
+      case 'retrying': return '重试中'
+      default: return status
+    }
+  }
+  
+  const getStatusType = (status) => {
+    switch (status) {
+      case 'pending': return 'info'
+      case 'processing': return 'warning'
+      case 'completed': return 'success'
+      case 'failed': return 'danger'
+      case 'retrying': return 'warning'
+      default: return 'info'
+    }
+  }
+  
+  const rowsHtml = results.map((r, idx) => {
+    const parsedResult = parsed.find(p => p.result_id === r.result_id)
+    const classApHtml = parsedResult && parsedResult.classAps && parsedResult.classAps.length > 0 ? `
+      <tr class="class-ap-row">
+        <td colspan="10">
+          <div class="result-detail" id="detail-${idx}" style="display: none;">
+            <h4>Epoch ${r.epoch} 各类别AP值</h4>
+            <table class="detail-table">
+              <thead>
+                <tr><th>类别</th><th>AP</th><th>可视化</th></tr>
+              </thead>
+              <tbody>
+                ${parsedResult.classAps.map(c => `
+                  <tr>
+                    <td>${c.class}</td>
+                    <td>${c.ap.toFixed(4)}</td>
+                    <td><div class="ap-bar"><div class="ap-bar-fill" style="width: ${c.ap * 100}%"></div></div></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+    ` : ''
+    return `
+      <tr>
+        <td>${r.result_id}</td>
+        <td>
+          <button class="toggle-btn" onclick="toggleDetail(${idx})">${parsedResult && parsedResult.classAps && parsedResult.classAps.length > 0 ? '📋' : '-'}</button>
+        </td>
+        <td>${r.epoch}</td>
+        <td><span class="status-${getStatusType(r.status)}">${getStatusText(r.status)}</span></td>
+        <td>${r.status === 'completed' && parsedResult ? parsedResult.metrics.mAP.toFixed(4) : '-'}</td>
+        <td>${r.status === 'completed' && parsedResult ? parsedResult.metrics.AP50.toFixed(4) : '-'}</td>
+        <td>${r.status === 'completed' && parsedResult ? parsedResult.metrics.AP75.toFixed(4) : '-'}</td>
+        <td>${r.status === 'completed' && parsedResult ? parsedResult.metrics.cocoMAP.toFixed(4) : '-'}</td>
+        <td>${formatDate(r.submitted_at)}</td>
+        <td>${formatDate(r.completed_at)}</td>
+      </tr>
+      ${classApHtml}
+    `
+  }).join('')
+  
+  const epochs = parsed.map(p => p.epoch)
+  const vocMapData = parsed.map(p => p.metrics.mAP)
+  const ap50Data = parsed.map(p => p.metrics.AP50)
+  const ap75Data = parsed.map(p => p.metrics.AP75)
+  const cocoMapData = parsed.map(p => p.metrics.cocoMAP)
+  
+  const chartImagesHtml = parsed.length > 0 ? `
+    <div class="card">
+      <h2>训练进度可视化</h2>
+      <h3>评估指标趋势</h3>
+      <div class="chart-row">
+        <div class="chart-container">
+          <h4>VOC mAP</h4>
+          <div id="vocMapChart" style="width: 100%; height: 300px;"></div>
+        </div>
+        <div class="chart-container">
+          <h4>COCO AP50</h4>
+          <div id="ap50Chart" style="width: 100%; height: 300px;"></div>
+        </div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-container">
+          <h4>COCO AP75</h4>
+          <div id="ap75Chart" style="width: 100%; height: 300px;"></div>
+        </div>
+        <div class="chart-container">
+          <h4>COCO mAP</h4>
+          <div id="cocoMapChart" style="width: 100%; height: 300px;"></div>
+        </div>
+      </div>
+    </div>
+  ` : ''
+  
+  const classApDataJson = JSON.stringify(parsed.map(p => p.classAps))
+  
+  const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>训练任务详情 - ${task.task_name}</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; background: #f5f7fa; color: #333; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { margin-bottom: 20px; color: #303133; }
+    h2 { margin: 30px 0 15px; color: #303133; font-size: 18px; }
+    h3 { margin: 20px 0 10px; color: #606266; font-size: 16px; }
+    h4 { margin: 15px 0 10px; color: #606266; font-size: 14px; }
+    .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header h1 { margin-bottom: 0; }
+    .status-tag { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 14px; }
+    .status-success { background: #f0f9eb; color: #67c23a; border: 1px solid #e1f3d8; }
+    .status-warning { background: #fdf6ec; color: #e6a23c; border: 1px solid #faecd8; }
+    .status-danger { background: #fef0f0; color: #f56c6c; border: 1px solid #fde2e2; }
+    .status-info { background: #f4f4f5; color: #909399; border: 1px solid #e9e9eb; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ebeef5; }
+    th { background: #f5f7fa; color: #606266; font-weight: 600; }
+    tr:hover { background: #fafafa; }
+    .descriptions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .descriptions .item { padding: 10px; }
+    .descriptions .label { color: #909399; font-size: 14px; margin-bottom: 5px; }
+    .descriptions .value { color: #303133; font-size: 14px; }
+    .chart-row { display: flex; flex-wrap: wrap; gap: 20px; margin: 15px 0; }
+    .chart-container { flex: 1; min-width: 300px; }
+    .view-class-btn { background: #409eff; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    .view-class-btn:hover { background: #66b1ff; }
+    .dialog-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; }
+    .dialog-content { background: #fff; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 90vh; overflow: auto; }
+    .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #ebeef5; }
+    .dialog-header h3 { margin: 0; }
+    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #909399; }
+    .dialog-body { padding: 20px; }
+    .class-charts-row { display: flex; flex-wrap: wrap; gap: 20px; }
+    .toggle-btn { background: #409eff; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .toggle-btn:hover { background: #66b1ff; }
+    .class-ap-row { background: #f9f9f9; }
+    .result-detail { padding: 15px; }
+    .result-detail h4 { margin: 0 0 10px; color: #409eff; }
+    .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .detail-table th, .detail-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ebeef5; }
+    .detail-table th { background: #f5f7fa; color: #606266; }
+    .ap-bar { width: 100px; height: 16px; background: #e4e7ed; border-radius: 3px; overflow: hidden; }
+    .ap-bar-fill { height: 100%; background: #409eff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>训练任务详情</h1>
+        <span class="status-tag status-${getStatusType(task.status)}">${getStatusText(task.status)}</span>
+      </div>
+      
+      <h2>基本信息</h2>
+      <div class="descriptions">
+        <div class="item">
+          <div class="label">任务ID</div>
+          <div class="value">${task.task_id}</div>
+        </div>
+        <div class="item">
+          <div class="label">任务名称</div>
+          <div class="value">${task.task_name}</div>
+        </div>
+        <div class="item">
+          <div class="label">创建时间</div>
+          <div class="value">${formatDate(task.created_at)}</div>
+        </div>
+        <div class="item">
+          <div class="label">服务器</div>
+          <div class="value">${task.server_name}</div>
+        </div>
+        ${task.api_key_id ? `
+        <div class="item">
+          <div class="label">API密钥ID</div>
+          <div class="value">${task.api_key_id}</div>
+        </div>
+        ` : ''}
+        <div class="item" style="grid-column: span 2;">
+          <div class="label">描述</div>
+          <div class="value">${task.description || '无'}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>训练结果列表</h2>
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>ID</th>
+            <th>Epoch</th>
+            <th>状态</th>
+            <th>VOC mAP</th>
+            <th>COCO AP50</th>
+            <th>COCO AP75</th>
+            <th>COCO mAP</th>
+            <th>提交时间</th>
+            <th>完成时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+    
+    ${chartImagesHtml}
+    
+  </div>
+  
+  <script>
+    const epochs = ${JSON.stringify(epochs)};
+    const vocMapData = ${JSON.stringify(vocMapData)};
+    const ap50Data = ${JSON.stringify(ap50Data)};
+    const ap75Data = ${JSON.stringify(ap75Data)};
+    const cocoMapData = ${JSON.stringify(cocoMapData)};
+    const classApData = ${classApDataJson};
+    
+    function createLineChart(chartId, title, xData, yData) {
+      const chart = echarts.init(document.getElementById(chartId));
+      const option = {
+        title: { text: title, left: 'center' },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: xData },
+        yAxis: { type: 'value' },
+        series: [{
+          data: yData,
+          type: 'line',
+          smooth: true,
+          areaStyle: { opacity: 0.3 }
+        }]
+      };
+      chart.setOption(option);
+      return chart;
+    }
+    
+    function toggleDetail(idx) {
+      const detail = document.getElementById('detail-' + idx);
+      if (detail.style.display === 'none') {
+        detail.style.display = 'block';
+      } else {
+        detail.style.display = 'none';
+      }
+    }
+    
+    window.addEventListener('load', function() {
+      if (document.getElementById('vocMapChart')) {
+        createLineChart('vocMapChart', 'VOC mAP', epochs, vocMapData);
+      }
+      if (document.getElementById('ap50Chart')) {
+        createLineChart('ap50Chart', 'COCO AP50', epochs, ap50Data);
+      }
+      if (document.getElementById('ap75Chart')) {
+        createLineChart('ap75Chart', 'COCO AP75', epochs, ap75Data);
+      }
+      if (document.getElementById('cocoMapChart')) {
+        createLineChart('cocoMapChart', 'COCO mAP', epochs, cocoMapData);
+      }
+    });
+    
+    window.addEventListener('resize', function() {
+      const charts = document.querySelectorAll('[id^="vocMapChart"], [id^="ap50Chart"], [id^="ap75Chart"], [id^="cocoMapChart"], [id^="classChart"]');
+      charts.forEach(el => {
+        const chart = echarts.getInstanceByDom(el);
+        if (chart) chart.resize();
+      });
+    });
+  <\/script>
+</body>
+</html>`
+  
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `训练任务详情_${task.task_name}_${new Date().toISOString().slice(0,10)}.html`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
+  
+  ElMessage.success('导出成功')
+}
+
 const goBack = () => {
   router.push('/training')
 }
@@ -930,6 +1406,12 @@ const goBack = () => {
 }
 
 .header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-right {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1094,5 +1576,19 @@ pre {
   color: #fff;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.upload-demo {
+  width: 100%;
+}
+
+.error-tip {
+  color: red;
+  margin-top: 10px;
 }
 </style> 

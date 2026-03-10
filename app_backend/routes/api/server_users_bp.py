@@ -171,7 +171,7 @@ def auto_signup():
     try:
         base_url = get_local_base_url()
         inbox_url = f"{base_url}/api/emails/{email_id}/inbox"
-        requests.get(inbox_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
+        requests.get(inbox_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=30)
     except Exception as e:
         return jsonify({'msg': f'刷新邮箱失败: {str(e)}'}), 500
     # 3. 注册逻辑（模拟signup.py）
@@ -210,7 +210,7 @@ def auto_signup():
     while time.time() - start_time < max_wait:
         try:
             print(inbox_url)
-            inbox_resp = requests.get(inbox_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
+            inbox_resp = requests.get(inbox_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=30)
             inbox_data = inbox_resp.json()
             messages = inbox_data.get('messages', [])
             print(messages)
@@ -221,7 +221,7 @@ def auto_signup():
                     msg_id = msg['mid']
                     base_url = get_local_base_url()
                     msg_url = f"{base_url}/api/emails/{email_id}/messages/{msg_id}"
-                    msg_resp = requests.get(msg_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=10)
+                    msg_resp = requests.get(msg_url, headers={'Authorization': request.headers.get('Authorization')}, timeout=30)
                     msg_data = msg_resp.json()
                     body = msg_data.get('body', '')
                     # 查找激活链接

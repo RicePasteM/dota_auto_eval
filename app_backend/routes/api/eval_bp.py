@@ -710,6 +710,67 @@ def get_training_results(task_id):
     except Exception as e:
         return jsonify({'msg': f'Failed to get training results: {str(e)}'}), 500
 
+@eval_bp.route('/training/result/<int:result_id>', methods=['DELETE'])
+@auth_required()
+def delete_training_result(result_id):
+    """Delete a training result"""
+    try:
+        result = TrainingResult.query.get_or_404(result_id)
+        
+        task_id = result.task_id
+        
+        db.session.delete(result)
+        db.session.commit()
+        
+        return jsonify({
+            'msg': 'Training result deleted',
+            'result_id': result_id,
+            'task_id': task_id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'msg': f'Failed to delete training result: {str(e)}'}), 500
+
+@eval_bp.route('/training/result/<int:result_id>/rerun', methods=['POST'])
+@auth_required()
+def rerun_training_result(result_id):
+    """Rerun evaluation for a training result"""
+    try:
+        result = TrainingResult.query.get_or_404(result_id)
+        
+        task = TrainingTask.query.get(result.task_id)
+        if not task:
+            return jsonify({'msg': 'Training task not found'}), 404
+            
+        if task.status != 'active':
+            return jsonify({'msg': f'Training task is not active (status: {task.status})'}), 400
+        
+        temp_dir = ensure_temp_dir()
+        submission_file = result.submission_file
+        file_path = os.path.join(temp_dir, submission_file)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'msg': f'Submission file not found: {submission_file}'}), 404
+        
+        result.status = 'pending'
+        result.eval_result = None
+        result.completed_at = None
+        result.progress_output = json.dumps([{"type": "info", "message": "Task queued for rerun processing"}])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'msg': 'Training result rerun submitted',
+            'result_id': result.result_id,
+            'task_id': result.task_id,
+            'epoch': result.epoch
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'msg': f'Failed to rerun training result: {str(e)}'}), 500
+
 @eval_bp.route('/training/<int:task_id>/status', methods=['PUT'])
 @auth_required()
 def update_training_status(task_id):
@@ -736,4 +797,28 @@ def update_training_status(task_id):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'msg': f'Failed to update status: {str(e)}'}), 500 
+        return jsonify({'msg': f'Failed to update status: {str(e)}'}), 500
+
+@eval_bp.route('/training/<int:task_id>', methods=['DELETE'])
+@auth_required()
+def delete_training_task(task_id):
+    """Delete a training task and all its results"""
+    try:
+        task = TrainingTask.query.get_or_404(task_id)
+        
+        task_name = task.task_name
+        
+        TrainingResult.query.filter_by(task_id=task_id).delete()
+        
+        db.session.delete(task)
+        db.session.commit()
+        
+        return jsonify({
+            'msg': 'Training task deleted',
+            'task_id': task_id,
+            'task_name': task_name
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'msg': f'Failed to delete training task: {str(e)}'}), 500 

@@ -23,12 +23,12 @@ def create_session():
         status_forcelist=[500, 502, 503, 504]  # 需要重试的HTTP状态码
     )
 
-    proxies = {
-        "http": "http://127.0.0.1:7890",
-        "https": "http://127.0.0.1:7890",
-    }
+    # proxies = {
+    #     "http": "http://127.0.0.1:7890",
+    #     "https": "http://127.0.0.1:7890",
+    # }
 
-    session.proxies = proxies
+    # session.proxies = proxies
     
     # 配置适配器
     adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -54,7 +54,7 @@ def get_default_headers():
     }
     
 
-def create_payload(email, url, mid=None):
+def create_payload(email, url, mid=None, timestamp=None):
     """使用requests库创建payload"""
     session = create_session()
     base_url = "https://smailpro.com/app/payload"
@@ -67,6 +67,9 @@ def create_payload(email, url, mid=None):
 
     if mid:
         params['mid'] = mid
+        
+    if timestamp:
+        params['timestamp'] = timestamp
     
     try:
         response = session.get(
@@ -83,7 +86,7 @@ def create_email(payload):
     url = f"https://api.sonjj.com/v1/temp_email/create?payload={payload}"
     print(url)
     try:
-        response = session.get(url, headers=get_default_headers())
+        response = session.get(url, headers=get_default_headers(), timeout=30)
         return response.json()
     except requests.exceptions.RequestException as e:
         return {'error': str(e)}
@@ -93,7 +96,7 @@ def get_inbox(payload):
     url = f"https://api.sonjj.com/v1/temp_email/inbox?payload={payload}"
     
     try:
-        response = session.get(url, headers=get_default_headers())
+        response = session.get(url, headers=get_default_headers(), timeout=30)
         return response.json()
     except requests.exceptions.RequestException as e:
         return {'error': str(e)}
@@ -118,7 +121,8 @@ def get_message_content(payload):
         response = session.get(
             url,
             params=params,
-            headers=get_default_headers()
+            headers=get_default_headers(),
+            timeout=30
         )
         return response.json()
     except requests.exceptions.RequestException as e:

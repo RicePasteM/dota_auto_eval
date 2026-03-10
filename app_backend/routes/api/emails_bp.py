@@ -85,11 +85,12 @@ def delete_email(email_id):
 @auth_required()
 def get_email_inbox(email_id):
     email = Email.query.get_or_404(email_id)
+    timestamp = request.args.get('timestamp')
     print(f"获取收件箱: {email.email}")
     payload = create_payload(email.email, url="https://api.sonjj.com/v1/temp_email/create")
     create_email(payload)
 
-    payload = create_payload(email.email, url="https://api.sonjj.com/v1/temp_email/inbox")
+    payload = create_payload(email.email, url="https://api.sonjj.com/v1/temp_email/inbox", timestamp=timestamp)
     
     try:
         # 获取收件箱内容

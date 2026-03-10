@@ -1,91 +1,102 @@
-# DOTA Auto Eval 系统
+<p align="center">
+  <img src="manage_frontend/public/favicon.ico" width="64" height="64" alt="DOTA Auto Eval Logo">
+</p>
 
-DOTA Auto Eval 是一个自动化的DOTA（Detection Object in Aerial Images）评估系统，专门用于解决DOTA官方验证服务器提交次数限制的问题。系统通过自动化邮箱注册和账号管理，实现了验证文件的自动提交和结果收集，显著提升了模型调试效率。
+<h1 align="center">DOTA Auto Eval</h1>
 
-## 主要功能
+<p align="center">
+  <a href="https://github.com/RicePasteM/dota_auto_eval">
+    <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version">
+  </a>
+  <a href="https://github.com/RicePasteM/dota_auto_eval/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
+  </a>
+  <a href="https://www.python.org/">
+    <img src="https://img.shields.io/badge/python-3.8+-orange.svg" alt="Python">
+  </a>
+</p>
 
-1. 邮箱自动化
-   - 基于smailpro的批量临时邮箱注册
-   - 邮箱验证码自动获取
-   - 邮箱状态监控
+<p align="center">
+  DOTA Auto Eval is an automated evaluation system for DOTA (Detection Object in Aerial Images), designed to address the limited submission quota on the DOTA official validation server. The system achieves automated email registration and account management, enabling automatic submission of validation files and result collection, significantly improving model debugging efficiency.
+</p>
 
-2. 账号管理
-   - DOTA验证服务器账号自动注册
-   - 账号激活自动化处理
-   - 多账号轮换使用
+---
 
-3. 提交自动化
-   - 验证文件自动提交
-   - 结果自动收集与解析
-   - 提交限制智能规避
+## ✨ Key Features
 
-## 项目架构
+| Feature | Description |
+|---------|-------------|
+| 📧 **Email Automation** | Batch temporary email registration via smailpro, automatic verification code retrieval, email status monitoring |
+| 👤 **Account Management** | Automated DOTA validation server account registration, automated activation processing, multi-account rotation |
+| 📤 **Submission Automation** | Automatic validation file submission, automatic result collection and parsing, intelligent submission limit avoidance |
+
+---
+
+## 🏗️ Project Structure
 
 ```
 DOTA_Auto_Eval/
-├── app_backend/      # 应用后端服务
-├── manage_frontend/  # 管理系统前端
-├── python_package/   # 自动化工具包
-└── temp/            # 临时文件目录
+├── app_backend/       # Application backend service
+├── manage_frontend/   # Management system frontend (pre-compiled)
+├── python_package/    # Automation toolkit
+└── temp/             # Temporary file directory
 ```
 
-## 主要模块说明
+---
 
-### 1. 管理系统前端 (manage_frontend)
+## 📦 Main Modules
 
-基于Vue 3的现代化Web管理界面，提供：
-- 邮箱和账号管理
-- 提交任务监控
-- 评估结果展示
-- 系统状态实时监控
+### 1. Management Frontend 🖥️
 
-技术栈：
-- Vue 3
-- Element Plus
-- ECharts
-- Vite
+A modern web management interface built with Vue 3, providing:
+- 📧 Email and account management
+- 📊 Submission task monitoring
+- 📈 Evaluation results display
+- 🔄 Real-time system status monitoring
 
-### 2. 应用后端 (app_backend)
+**Tech Stack:** Vue 3 • Element Plus • ECharts • Vite
 
-系统的核心服务端，负责：
-- 邮箱注册和管理
-- DOTA账号自动创建
-- 提交任务调度
-- 结果自动获取
+> **Note:** The frontend is pre-compiled and served by the backend automatically. Node.js is only required if you need to modify the frontend code.
 
-### 3. Python工具包 (python_package)
+### 2. Application Backend ⚙️
 
-提供核心的自动化功能：
-- 提交验证文件到DOTA服务器
-- 账号注册自动化
-- 结果获取和解析
-- 错误处理和重试机制
+The core server-side of the system, responsible for:
+- 📧 Email registration and management
+- 🤖 Automated DOTA account creation
+- 📋 Submission task scheduling
+- 📥 Automatic result retrieval
 
-## 系统要求
+### 3. Python Package 🐍
 
-- Python 3.8+
-- Node.js 16.0.0+
-- npm 7.0.0+
-- 现代浏览器（Chrome, Firefox, Safari, Edge等）
+Provides core automation functionality:
+- 📤 Submit validation files to DOTA server
+- 🤖 Automated account registration
+- 📊 Result retrieval and parsing
+- ⚡ Error handling and retry mechanisms
 
-## 快速开始
+---
 
-### 1. 克隆项目
+## 📋 System Requirements
+
+| Requirement | Version | Note |
+|-------------|---------|------|
+| 🐍 Python | 3.8+ | Backend runtime |
+| 🌐 Node.js | 16.0.0+ | Only for frontend development |
+| 📦 npm | 7.0.0+ | Only for frontend development |
+| 🌍 Browser | Modern | Chrome, Firefox, Safari, Edge |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone the Project
 
 ```bash
 git clone https://github.com/RicePasteM/dota_auto_eval
 cd DOTA_Auto_Eval
 ```
 
-### 2. 启动管理前端
-
-```bash
-cd manage_frontend
-npm install
-npm run dev
-```
-
-### 3. 启动后端服务
+### 2. Start the Backend Service
 
 ```bash
 cd app_backend
@@ -93,47 +104,54 @@ pip install -r requirements.txt
 python wsgi.py
 ```
 
-## 使用指南
+### 3. Access the System
 
-1. 账号管理
-   - 设置验证服务器地址
-   - 设置账号生成规则
-   - 配置自动注册参数
-   - 监控账号状态
+Open your browser and navigate to the backend service address (default: `http://localhost:5000`)
 
-2. 提交管理
-   - 上传验证文件
-   - 设置提交策略
-   - 查看评估结果
+> 📖 For detailed deployment instructions, please refer to the **[Deployment Guide](Deployment_Guide.md)**.
 
-## 开发指南
+---
 
-1. 前端开发
-   - 遵循Vue 3组合式API最佳实践
-   - 使用Element Plus组件库
-   - 参考前端模块的具体README
+## 📖 Usage Guide
 
-2. 后端开发
-   - 遵循PEP 8编码规范
-   - 编写单元测试
-   - 注意API文档维护
+### 1. Account Management
+- 🔧 Set validation server address
+- 🔧 Set account generation rules
+- ⚙️ Configure automatic registration parameters
+- 👁️ Monitor account status
 
-3. 工具包开发
-   - 保持代码模块化
-   - 完善错误处理
-   - 优化自动化流程
+### 2. Submission Management
+- 📤 Upload validation files
+- ⚙️ Set submission strategies
+- 📊 View evaluation results
 
-## 注意事项
+---
 
-- 合理使用临时邮箱服务，避免滥用
-- 遵守DOTA官方服务器使用规则
-- 定期清理临时文件
-- 及时处理失败任务
+## 💻 Development Guide
 
-## 许可证
+| Area | Guidelines |
+|------|------------|
+| 🎨 Frontend | Follow Vue 3 Composition API best practices, use Element Plus component library |
+| ⚙️ Backend | Follow PEP 8 coding standards, write unit tests, maintain API documentation |
+| 🐍 Package | Keep code modular, improve error handling, optimize automation workflows |
+
+---
+
+## ⚠️ Notes
+
+- 📧 Use temporary email services reasonably to avoid abuse
+- 📜 Comply with DOTA official server usage rules
+- 🧹 Clean up temporary files regularly
+- ✅ Handle failed tasks promptly
+
+---
+
+## 📄 License
 
 MIT
 
-## 联系方式
+---
 
-HuZhangchi@mail.ustc.edu.cn
+<p align="center">
+  <a href="README_CN.md">🇨🇳 中文版</a>
+</p>

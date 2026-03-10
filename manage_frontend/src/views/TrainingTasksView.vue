@@ -23,7 +23,7 @@
             <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280">
+        <el-table-column label="操作" width="320">
           <template #default="scope">
             <el-button size="small" @click="handleViewDetail(scope.row)">详情</el-button>
             <el-button size="small" type="success" @click="handleSubmitEpoch(scope.row)" :disabled="scope.row.status !== 'active'">提交训练结果</el-button>
@@ -39,6 +39,7 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
+            <el-button size="small" type="danger" @click="handleDeleteTask(scope.row)" style="margin-left: 10px;">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -185,6 +186,11 @@ const submitRules = {
 
 // 生命周期钩子
 onMounted(() => {
+  const savedPage = sessionStorage.getItem('trainingListPage')
+  if (savedPage) {
+    currentPage.value = parseInt(savedPage)
+    sessionStorage.removeItem('trainingListPage')
+  }
   fetchTrainingTasks()
   fetchServers()
 })
@@ -277,6 +283,7 @@ const getStatusText = (status) => {
 }
 
 const handleViewDetail = (row) => {
+  sessionStorage.setItem('trainingListPage', currentPage.value)
   router.push(`/training/${row.task_id}`)
 }
 
@@ -347,6 +354,29 @@ const handleCommand = async (command, row) => {
   } catch (error) {
     console.error('更新状态失败:', error)
     ElMessage.error('更新状态失败')
+  }
+}
+
+const handleDeleteTask = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除训练任务"${row.task_name}"吗？此操作将同时删除该任务下的所有评测结果，且不可恢复。`,
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    await axios.delete(`/api/training/${row.task_id}`)
+    ElMessage.success('删除成功')
+    fetchTrainingTasks()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error(error.response?.data?.msg || '删除失败')
+    }
   }
 }
 </script>

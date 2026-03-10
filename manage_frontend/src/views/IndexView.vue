@@ -2,7 +2,7 @@
   <el-container class="layout-container">
     <el-aside width="220px" class="menu-container">
       <div class="logo-container">
-        <h2>DOTA 管理系统</h2>
+        <h2>DOTA 自动评估系统</h2>
       </div>
       <el-menu
         router
